@@ -18,12 +18,27 @@
 					:label="i18n.filter"
 					@click="toggleSidebar"
 				/>
-				<pkp-button
+				<ul
 					v-if="currentUserCanAddSubmission"
-					element="a"
-					:href="addUrl"
-					:label="i18n.add"
-				/>
+					class="pkp_nav_add_submission pkp_nav_list"
+					role="navigation"
+					:aria-label="i18n.addSubmissionNavigation"
+				>
+					<li aria-haspopup="true" aria-expanded="false">
+						<pkp-button :label="i18n.add" />
+						<ul>
+							<li
+								v-for="sectionReadableKey in sectionReadableKeys"
+								:key="sectionReadableKey"
+								v-bind="sectionReadableKey"
+							>
+								<a :href="getAddSubmissionUrl(sectionReadableKey)">
+									{{ getSectionLocalizedTitle(sectionReadableKey) }}
+								</a>
+							</li>
+						</ul>
+					</li>
+				</ul>
 			</template>
 		</pkp-header>
 
@@ -143,10 +158,26 @@ export default {
 				return '';
 			}
 		},
+		sectionReadableKeys: {
+			type: Array,
+			required: true
+		},
+		addUrls: {
+			type: Array,
+			required: true
+		},
 		csrfToken: {
 			type: String,
 			required: true
 		}
+	},
+	mounted() {
+		var $submissionsListPanel = $(this.$el);
+
+		// add menu handler to show / hide popup with submission kind entries
+		$submissionsListPanel
+			.find('.pkp_nav_add_submission')
+			.pkpHandler('$.pkp.controllers.MenuHandler');
 	},
 	computed: {
 		/**
@@ -232,7 +263,36 @@ export default {
 			} else {
 				this.removeFilter(param, value);
 			}
+		},
+
+		getSectionLocalizedTitle(sectionReadableKey) {
+			return $(this.i18n).prop(
+				'section.' + sectionReadableKey + '.localizedTitle'
+			);
+		},
+		getAddSubmissionUrl(sectionReadableKey) {
+			return $(this.addUrls).prop(sectionReadableKey);
 		}
 	}
 };
 </script>
+
+<style lang="less">
+.pkp_nav_add_submission.pkp_nav_list {
+	margin-left: 0.25rem;
+
+	[aria-expanded='true'] {
+		> ul {
+			left: auto;
+			right: 0;
+			width: auto;
+
+			top: 100% !important; // ensures placement directly at bottom edge so that popup does not get hidden when mouse pointer leaves toggle button
+
+			a {
+				white-space: nowrap;
+			}
+		}
+	}
+}
+</style>

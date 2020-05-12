@@ -19,6 +19,12 @@
 					>
 						{{ currentPublication.authorsStringShort }}
 					</div>
+					<div
+						v-if="item.section && item.section.identifyType"
+						class="pkpListPanelItem--section__identifyType"
+					>
+						{{ localizeSubmission(item.section.identifyType, item.locale) }}
+					</div>
 					<div class="pkpListPanelItem--submission__title">
 						{{
 							localizeSubmission(
@@ -499,6 +505,7 @@ export default {
 			return (
 				this.item.status === pkp.const.STATUS_SCHEDULED ||
 				this.item.status === pkp.const.STATUS_PUBLISHED ||
+				this.item.status === pkp.const.STATUS_FINISHED ||
 				this.item.status === pkp.const.STATUS_DECLINED
 			);
 		},
@@ -520,7 +527,8 @@ export default {
 		isApproved() {
 			return (
 				this.item.status === pkp.const.STATUS_SCHEDULED ||
-				this.item.status === pkp.const.STATUS_PUBLISHED
+				this.item.status === pkp.const.STATUS_PUBLISHED ||
+				this.item.status === pkp.const.STATUS_FINISHED
 			);
 		},
 
@@ -1003,6 +1011,7 @@ export default {
 
 .pkpListPanelItem--submission__title,
 .pkpListPanelItem--submission__author,
+.pkpListPanelItem--section__identifyType,
 .pkpListPanelItem--submission__activity {
 	display: block;
 	padding-right: 2em;
