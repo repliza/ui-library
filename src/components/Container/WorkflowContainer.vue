@@ -30,6 +30,7 @@ export default {
 			publicationFormIds: [],
 			publicationList: [],
 			publishUrl: '',
+			finishUrl: '',
 			representationsGridUrl: '',
 			submission: null,
 			submissionApiUrl: '',
@@ -47,7 +48,8 @@ export default {
 		 */
 		canCreateNewVersion() {
 			return (
-				this.submission.status === pkp.const.STATUS_PUBLISHED &&
+				(this.submission.status === pkp.const.STATUS_PUBLISHED ||
+					this.submission.status === pkp.const.STATUS_FINISHED) &&
 				this.latestPublicationId <= this.currentPublication.id
 			);
 		},
@@ -327,6 +329,37 @@ export default {
 		},
 
 		/**
+		 * Open a modal with the finish confirmation steps
+		 */
+		openFinish() {
+			const sourceUrl = this.finishUrl.replace(
+				'__publicationId__',
+				this.workingPublication.id
+			);
+
+			const opts = {
+				title: this.i18n.finishModalTitle,
+				url: sourceUrl,
+				closeCallback: () => {
+					if (this.$refs.finish) {
+						this.$refs.finish.$el.focus();
+					} else if (this.$refs.createVersion) {
+						this.$refs.createVersion.$el.focus();
+					}
+					this.setFocusIn(this.$refs.publication);
+				},
+				closeOnFormSuccessId: pkp.const.FORM_FINISH
+			};
+
+			$(
+				'<div id="' +
+					$.pkp.classes.Helper.uuid() +
+					'" ' +
+					'class="pkp_modal pkpModalWrapper" tabIndex="-1"></div>'
+			).pkpHandler('$.pkp.controllers.modal.AjaxModalHandler', opts);
+		},
+
+		/**
 		 * Open a confirmation modal before unpublishing a publication
 		 */
 		openUnpublish() {
@@ -342,6 +375,35 @@ export default {
 						: this.i18n.unpublishConfirm,
 				callback: () => {
 					this.unpublish(this.workingPublication);
+				},
+				closeCallback: () => {
+					if (focusTarget) {
+						focusTarget.focus();
+					}
+				}
+			};
+
+			$(
+				'<div id="' +
+					$.pkp.classes.Helper.uuid() +
+					'" ' +
+					'class="pkp_modal pkpModalWrapper" tabindex="-1"></div>'
+			).pkpHandler(modalOptions.modalHandler, modalOptions);
+		},
+
+		/**
+		 * Open a confirmation modal before retracting a publication
+		 */
+		openRetract() {
+			const focusTarget = document.activeElement;
+			const modalOptions = {
+				modalHandler: '$.pkp.controllers.modal.ConfirmationModalHandler',
+				title: '',
+				okButton: this.i18n.ok,
+				cancelButton: this.i18n.cancel,
+				dialogText: this.i18n.retractConfirm,
+				callback: () => {
+					this.retract(this.workingPublication);
 				},
 				closeCallback: () => {
 					if (focusTarget) {
@@ -405,7 +467,8 @@ export default {
 				// Add/remove save button depending on publication status or user permissions
 				form.canSubmit =
 					this.canEditPublication &&
-					publication.status !== pkp.const.STATUS_PUBLISHED;
+					(publication.status !== pkp.const.STATUS_PUBLISHED ||
+						publication.status !== pkp.const.STATUS_FINISHED);
 
 				// Pass the publication status to the issue selection field
 				if (formId === pkp.const.FORM_ISSUE_ENTRY) {
@@ -495,6 +558,39 @@ export default {
 		},
 
 		/**
+		 * Retract a publication
+		 */
+		retract(publication) {
+			this.isLoadingVersion = true;
+			var self = this;
+
+			$.ajax({
+				url:
+					this.submissionApiUrl +
+					'/publications/' +
+					publication.id +
+					'/retract',
+				type: 'PUT',
+				headers: {
+					'X-Csrf-Token': this.csrfToken
+				},
+				error(r) {
+					self.isLoadingVersion = false;
+					self.ajaxErrorCallback(r);
+				},
+				success(r) {
+					self.workingPublication = {};
+					self.workingPublication = r;
+					self.updatePublicationInList(r);
+					self.setPublicationForms(r);
+					self.isLoadingVersion = false;
+					self.setFocusIn(self.$refs.publication);
+					self.refreshSubmission();
+				}
+			});
+		},
+
+		/**
 		 * Update a publication's details in the publication list
 		 *
 		 * @param {Object} newPublication
@@ -534,8 +630,11 @@ export default {
 				this.workingPublication = newPublication;
 			}
 
-			// Update the submission's status when the publish form is completed
-			if (formId === pkp.const.FORM_PUBLISH) {
+			// Update the submission's status when the publish or finish form is completed
+			if (
+				formId === pkp.const.FORM_PUBLISH ||
+				formId === pkp.const.FORM_FINISH
+			) {
 				this.setPublicationForms(newPublication);
 				this.currentPublication = {};
 				this.currentPublication = newPublication;
@@ -582,6 +681,12 @@ export default {
 		 * event is fired
 		 */
 		pkp.eventBus.$on('unpublish:publication', this.openUnpublish);
+
+		/**
+		 * Open the retract confirmation modal when a global retract
+		 * event is fired
+		 */
+		pkp.eventBus.$on('retract:publication', this.openRetract);
 	}
 };
 </script>
